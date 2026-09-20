@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام توليد الخطابات المحاسبية</title>
   
-  <!-- روابط مكتبات مستقرة ومضمونة لعدم ظهور خطأ PizZip -->
+  <!-- روابط مكتبات مستقرة ومضمونة -->
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip-utils.min.js"></script>
-
-  <!-- تحميل مكتبة docxtemplater والمكتبات المساندة -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
@@ -103,32 +101,42 @@
     }
     .status-success { background-color: #d1e7dd; color: #0f5132; }
     .status-error { background-color: #f8d7da; color: #842029; }
-    #partnersGroup { display: none; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>مولد الخطابات والقرارات المحاسبية</h2>
+  <h2>نظام توليد الخطابات المحاسبية</h2>
 
   <form id="docForm">
+    <!-- قائمة الشركات مع خيار كتابة اسم شركة جديد -->
     <div class="form-group">
-      <label for="companyName">اسم المنشأة/الشركة:</label>
-      <input type="text" id="companyName" required placeholder="مثال: شركة الوفاق">
+      <label for="companyName">اسم المنشأة / الشركة:</label>
+      <input type="text" id="companyName" list="companyList" required placeholder="اختر من القائمة أو اكتب اسماً جديداً...">
+      <datalist id="companyList">
+        <option value="شركة الوادي الاخضر">
+        <option value="شركة الوفاق">
+        <option value="مؤسسة النماء">
+      </datalist>
+    </div>
+
+    <div class="form-group">
+      <label for="crNumber">رقم السجل التجاري:</label>
+      <input type="text" id="crNumber" placeholder="أدخل رقم السجل التجاري (إن وجد)">
     </div>
 
     <div class="form-group">
       <label for="entityType">نوع الكيان القانوني:</label>
-      <select id="entityType" onchange="togglePartnersField()">
-        <option value="مؤسسة">مؤسسة</option>
+      <select id="entityType">
         <option value="شركة">شركة</option>
+        <option value="مؤسسة">مؤسسة</option>
       </select>
     </div>
 
-    <!-- حقل أسماء الشركاء (يظهر فقط عند اختيار شركة) -->
+    <!-- حقل أسماء الشركاء موجود بشكل دائم ومتاح دائماً -->
     <div class="form-group" id="partnersGroup">
       <label for="partners">أسماء الشركاء / الشريك:</label>
-      <textarea id="partners" rows="2" placeholder="أدخل أسماء الشركاء (مثال: محمد أحمد، عبد الله خالد)"></textarea>
+      <textarea id="partners" rows="2" placeholder="أدخل أسماء الشركاء (مثال: محمد أحمد)"></textarea>
     </div>
 
     <!-- تقويم تاريخ الخطاب -->
@@ -151,7 +159,7 @@
           <label for="chk_rep">خطاب التمثيل (representation_letter.docx)</label>
         </div>
         <div class="checkbox-item">
-          <input type="checkbox" id="chk_app">
+          <input type="checkbox" id="chk_app" checked>
           <label for="chk_app">قرار التعيين (template1.docx)</label>
         </div>
       </div>
@@ -164,22 +172,22 @@
 </div>
 
 <script>
-  // تعيين تاريخ اليوم افتراضياً للخطاب، وتاريخ 31 ديسمبر للسنة المالية تلقائياً
+  // تعيين التواريخ افتراضياً
   const today = new Date();
   document.getElementById('gDate').valueAsDate = today;
   
-  // تعيين نهاية السنة الحالية افتراضياً (31 ديسمبر)
   const currentYear = today.getFullYear();
   document.getElementById('yearEnd').value = `${currentYear}-12-31`;
 
-  // إظهار وإخفاء حقل الشركاء
-  function togglePartnersField() {
-    const entityType = document.getElementById("entityType").value;
-    const partnersGroup = document.getElementById("partnersGroup");
-    partnersGroup.style.display = (entityType === "شركة") ? "block" : "none";
+  // استخراج اسم اليوم باللغة العربية
+  function getArabicDayName(dateStr) {
+    if (!dateStr) return "";
+    const dateObj = new Date(dateStr);
+    const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    return days[dateObj.getDay()] || "";
   }
 
-  // تحويل صيغة التقويم (YYYY-MM-DD) إلى تاريخ نصي عربي (مثال: 31 ديسمبر 2025م)
+  // تحويل التاريخ ليكون شاملاً رقم اليوم والشهر والسنة
   function formatArabicDate(dateStr) {
     if (!dateStr) return "";
     const parts = dateStr.split('-');
@@ -195,7 +203,7 @@
     ];
 
     if (monthIndex < 0 || monthIndex > 11) return dateStr;
-    return `${day} ${months[monthIndex]} ${year}م`;
+    return `${day} ${months[monthIndex]} ${year}`;
   }
 
   function getEntityFormatures(type) {
@@ -206,7 +214,6 @@
     }
   }
 
-  // دالة توليد المستند
   async function renderDocument(templateName, outputFilename, payload) {
     const response = await fetch(templateName);
     if (!response.ok) {
@@ -215,7 +222,6 @@
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
 
-    // التحقق من تحميل PizZip
     const PizZipLib = window.PizZip || PizZip;
     if (typeof PizZipLib === 'undefined') {
       throw new Error("لم يتم تحميل مكتبة PizZip، يرجى تحديث الصفحة.");
@@ -224,7 +230,8 @@
     const zip = new PizZipLib(arrayBuffer);
     const doc = new window.docxtemplater(zip, {
       paragraphLoop: true,
-      linebreaks: true
+      linebreaks: true,
+      nullGetter: function() { return ""; } // الاستعاضة عن undefined بنص فارغ
     });
 
     doc.render(payload);
@@ -237,12 +244,12 @@
     saveAs(out, outputFilename);
   }
 
-  // المتحكم الرئيسي
   async function runMainController() {
     const statusDiv = document.getElementById("status");
     statusDiv.style.display = "none";
 
     const companyName = document.getElementById("companyName").value.trim();
+    const crNumber = document.getElementById("crNumber").value.trim();
     const rawGDate = document.getElementById("gDate").value;
     const rawYearEnd = document.getElementById("yearEnd").value;
     const entityType = document.getElementById("entityType").value;
@@ -254,18 +261,22 @@
     }
 
     const forms = getEntityFormatures(entityType);
-    
-    // تحويل التواريخ المختارة من التقويم إلى صيغ نصية عربية واضحة للخطاب
     const formattedGDate = formatArabicDate(rawGDate);
     const formattedYearEnd = formatArabicDate(rawYearEnd);
+    const dayName = getArabicDayName(rawGDate);
 
+    // تجهيز القيم الشاملة لمنع ظهور undefined في أي قالب
     const payload = {
       companyName: companyName,
+      crNumber: crNumber,
       gDate: formattedGDate,
       yearEnd: formattedYearEnd,
+      dayName: dayName,
       entityThe: forms.entityThe,
       entityFor: forms.entityFor,
-      partners: partners
+      partners: partners,
+      partnerName: partners,
+      managerName: partners
     };
 
     const tasks = [];
