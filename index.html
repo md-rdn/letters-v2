@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام توليد الخطابات المحاسبية</title>
   
-  <!-- مكتبات مضمونة ومحدثة لـ PizZip و docxtemplater و FileSaver -->
-  <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.min.js"></script>
-  <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip-utils.min.js"></script>
+  <!-- روابط مكتبات مستقرة ومضمونة لعدم ظهور خطأ PizZip -->
+  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip-utils.min.js"></script>
+
+  <!-- تحميل مكتبة docxtemplater والمكتبات المساندة -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
@@ -101,7 +103,7 @@
     }
     .status-success { background-color: #d1e7dd; color: #0f5132; }
     .status-error { background-color: #f8d7da; color: #842029; }
-    #partnersGroup { display: none; } /* إخفاء حقل الشركاء افتراضياً */
+    #partnersGroup { display: none; }
   </style>
 </head>
 <body>
@@ -123,20 +125,22 @@
       </select>
     </div>
 
-    <!-- حقل أسماء الشركاء (يظهر عند اختيار شركة) -->
+    <!-- حقل أسماء الشركاء (يظهر فقط عند اختيار شركة) -->
     <div class="form-group" id="partnersGroup">
       <label for="partners">أسماء الشركاء / الشريك:</label>
-      <textarea id="partners" rows="2" placeholder="أدخل أسماء الشركاء يفصل بينهم فاصلة (مثال: محمد أحمد، عبد الله خالد)"></textarea>
+      <textarea id="partners" rows="2" placeholder="أدخل أسماء الشركاء (مثال: محمد أحمد، عبد الله خالد)"></textarea>
     </div>
 
+    <!-- تقويم تاريخ الخطاب -->
     <div class="form-group">
       <label for="gDate">تاريخ الخطاب:</label>
       <input type="date" id="gDate" required>
     </div>
 
+    <!-- تقويم تاريخ نهاية السنة المالية -->
     <div class="form-group">
       <label for="yearEnd">تاريخ نهاية السنة المالية:</label>
-      <input type="text" id="yearEnd" placeholder="مثال: 31 ديسمبر 2025م">
+      <input type="date" id="yearEnd" required>
     </div>
 
     <div class="form-group">
@@ -160,21 +164,22 @@
 </div>
 
 <script>
-  // تعيين تاريخ اليوم افتراضياً
-  document.getElementById('gDate').valueAsDate = new Date();
+  // تعيين تاريخ اليوم افتراضياً للخطاب، وتاريخ 31 ديسمبر للسنة المالية تلقائياً
+  const today = new Date();
+  document.getElementById('gDate').valueAsDate = today;
+  
+  // تعيين نهاية السنة الحالية افتراضياً (31 ديسمبر)
+  const currentYear = today.getFullYear();
+  document.getElementById('yearEnd').value = `${currentYear}-12-31`;
 
-  // إظهار وإخفاء حقل الشركاء بناءً على نوع الكيان
+  // إظهار وإخفاء حقل الشركاء
   function togglePartnersField() {
     const entityType = document.getElementById("entityType").value;
     const partnersGroup = document.getElementById("partnersGroup");
-    if (entityType === "شركة") {
-      partnersGroup.style.display = "block";
-    } else {
-      partnersGroup.style.display = "none";
-    }
+    partnersGroup.style.display = (entityType === "شركة") ? "block" : "none";
   }
 
-  // تنسيق التاريخ إلى اللغة العربية
+  // تحويل صيغة التقويم (YYYY-MM-DD) إلى تاريخ نصي عربي (مثال: 31 ديسمبر 2025م)
   function formatArabicDate(dateStr) {
     if (!dateStr) return "";
     const parts = dateStr.split('-');
@@ -193,7 +198,6 @@
     return `${day} ${months[monthIndex]} ${year}م`;
   }
 
-  // تحديد الصيغة اللغوية للمؤسسة أو الشركة
   function getEntityFormatures(type) {
     if (type === "شركة") {
       return { entityThe: "الشركة", entityFor: "للشركة" };
@@ -202,21 +206,22 @@
     }
   }
 
-  // دالة التوليد الموحدة والمستقلة
+  // دالة توليد المستند
   async function renderDocument(templateName, outputFilename, payload) {
     const response = await fetch(templateName);
     if (!response.ok) {
-      throw new Error(`تعذر العثور على القالب: ${templateName}`);
+      throw new Error(`تعذر تحميل القالب: ${templateName}`);
     }
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
 
-    // التحقق من وجود PizZip لتفادي توقف السكريبت
-    if (typeof PizZip === 'undefined') {
-      throw new Error("لم يتم تحميل مكتبة PizZip بنجاح، يرجى التحديث وإعادة المحاولة.");
+    // التحقق من تحميل PizZip
+    const PizZipLib = window.PizZip || PizZip;
+    if (typeof PizZipLib === 'undefined') {
+      throw new Error("لم يتم تحميل مكتبة PizZip، يرجى تحديث الصفحة.");
     }
 
-    const zip = new PizZip(arrayBuffer);
+    const zip = new PizZipLib(arrayBuffer);
     const doc = new window.docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true
@@ -238,27 +243,29 @@
     statusDiv.style.display = "none";
 
     const companyName = document.getElementById("companyName").value.trim();
-    const rawDate = document.getElementById("gDate").value;
-    const yearEnd = document.getElementById("yearEnd").value.trim();
+    const rawGDate = document.getElementById("gDate").value;
+    const rawYearEnd = document.getElementById("yearEnd").value;
     const entityType = document.getElementById("entityType").value;
     const partners = document.getElementById("partners").value.trim();
 
-    if (!companyName || !rawDate) {
-      alert("يرجى تعبئة اسم المنشأة وتاريخ الخطاب.");
+    if (!companyName || !rawGDate || !rawYearEnd) {
+      alert("يرجى تعبئة كافة الحقول المطلوبة واختيار التواريخ.");
       return;
     }
 
     const forms = getEntityFormatures(entityType);
-    const formattedDate = formatArabicDate(rawDate);
+    
+    // تحويل التواريخ المختارة من التقويم إلى صيغ نصية عربية واضحة للخطاب
+    const formattedGDate = formatArabicDate(rawGDate);
+    const formattedYearEnd = formatArabicDate(rawYearEnd);
 
-    // كائن البيانات الشامل للمتغيرات داخل ملفات الـ Word
     const payload = {
       companyName: companyName,
-      gDate: formattedDate,
-      yearEnd: yearEnd,
+      gDate: formattedGDate,
+      yearEnd: formattedYearEnd,
       entityThe: forms.entityThe,
       entityFor: forms.entityFor,
-      partners: partners // متوفر الآن للاستخدام داخل القوالب بنفس الاسم {partners}
+      partners: partners
     };
 
     const tasks = [];
