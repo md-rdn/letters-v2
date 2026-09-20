@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام توليد الخطابات المحاسبية</title>
   
-  <!-- مكتبات docxtemplater و PizZip و FileSaver -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pizzip/3.1.4/pizzip.min.js"></script>
+  <!-- مكتبات مضمونة ومحدثة لـ PizZip و docxtemplater و FileSaver -->
+  <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.min.js"></script>
+  <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip-utils.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
@@ -46,13 +47,14 @@
       margin-bottom: 6px;
       color: #333;
     }
-    input[type="text"], input[type="date"], select {
+    input[type="text"], input[type="date"], select, textarea {
       width: 100%;
       padding: 10px;
       border: 1px solid var(--border-color);
       border-radius: 6px;
       box-sizing: border-box;
       font-size: 15px;
+      font-family: inherit;
     }
     .checkbox-group {
       border: 1px solid var(--border-color);
@@ -99,6 +101,7 @@
     }
     .status-success { background-color: #d1e7dd; color: #0f5132; }
     .status-error { background-color: #f8d7da; color: #842029; }
+    #partnersGroup { display: none; } /* إخفاء حقل الشركاء افتراضياً */
   </style>
 </head>
 <body>
@@ -109,15 +112,21 @@
   <form id="docForm">
     <div class="form-group">
       <label for="companyName">اسم المنشأة/الشركة:</label>
-      <input type="text" id="companyName" required placeholder="مثال: الوفاق">
+      <input type="text" id="companyName" required placeholder="مثال: شركة الوفاق">
     </div>
 
     <div class="form-group">
       <label for="entityType">نوع الكيان القانوني:</label>
-      <select id="entityType" onchange="updateEntityFields()">
+      <select id="entityType" onchange="togglePartnersField()">
         <option value="مؤسسة">مؤسسة</option>
         <option value="شركة">شركة</option>
       </select>
+    </div>
+
+    <!-- حقل أسماء الشركاء (يظهر عند اختيار شركة) -->
+    <div class="form-group" id="partnersGroup">
+      <label for="partners">أسماء الشركاء / الشريك:</label>
+      <textarea id="partners" rows="2" placeholder="أدخل أسماء الشركاء يفصل بينهم فاصلة (مثال: محمد أحمد، عبد الله خالد)"></textarea>
     </div>
 
     <div class="form-group">
@@ -151,13 +160,23 @@
 </div>
 
 <script>
-  // تعيين تاريخ اليوم كقيمة افتراضية لمدخل التاريخ
+  // تعيين تاريخ اليوم افتراضياً
   document.getElementById('gDate').valueAsDate = new Date();
 
-  // دالة تنسيق التاريخ العربي المنقحة لضمان عدم القفز أو الانقلاب
+  // إظهار وإخفاء حقل الشركاء بناءً على نوع الكيان
+  function togglePartnersField() {
+    const entityType = document.getElementById("entityType").value;
+    const partnersGroup = document.getElementById("partnersGroup");
+    if (entityType === "شركة") {
+      partnersGroup.style.display = "block";
+    } else {
+      partnersGroup.style.display = "none";
+    }
+  }
+
+  // تنسيق التاريخ إلى اللغة العربية
   function formatArabicDate(dateStr) {
     if (!dateStr) return "";
-    
     const parts = dateStr.split('-');
     if (parts.length !== 3) return dateStr;
 
@@ -171,25 +190,19 @@
     ];
 
     if (monthIndex < 0 || monthIndex > 11) return dateStr;
-
     return `${day} ${months[monthIndex]} ${year}م`;
   }
 
-  // تحضير وصياغة المتغيرات اللغوية بحسب نوع الكيان
+  // تحديد الصيغة اللغوية للمؤسسة أو الشركة
   function getEntityFormatures(type) {
     if (type === "شركة") {
-      return {
-        entityThe: "الشركة",
-        entityFor: "للشركة"
-      };
+      return { entityThe: "الشركة", entityFor: "للشركة" };
     } else {
-      return {
-        entityThe: "المؤسسة",
-        entityFor: "لمؤسسة"
-      };
+      return { entityThe: "المؤسسة", entityFor: "لمؤسسة" };
     }
   }
 
+  // دالة التوليد الموحدة والمستقلة
   async function renderDocument(templateName, outputFilename, payload) {
     const response = await fetch(templateName);
     if (!response.ok) {
@@ -197,6 +210,11 @@
     }
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
+
+    // التحقق من وجود PizZip لتفادي توقف السكريبت
+    if (typeof PizZip === 'undefined') {
+      throw new Error("لم يتم تحميل مكتبة PizZip بنجاح، يرجى التحديث وإعادة المحاولة.");
+    }
 
     const zip = new PizZip(arrayBuffer);
     const doc = new window.docxtemplater(zip, {
@@ -214,6 +232,7 @@
     saveAs(out, outputFilename);
   }
 
+  // المتحكم الرئيسي
   async function runMainController() {
     const statusDiv = document.getElementById("status");
     statusDiv.style.display = "none";
@@ -222,6 +241,7 @@
     const rawDate = document.getElementById("gDate").value;
     const yearEnd = document.getElementById("yearEnd").value.trim();
     const entityType = document.getElementById("entityType").value;
+    const partners = document.getElementById("partners").value.trim();
 
     if (!companyName || !rawDate) {
       alert("يرجى تعبئة اسم المنشأة وتاريخ الخطاب.");
@@ -231,13 +251,14 @@
     const forms = getEntityFormatures(entityType);
     const formattedDate = formatArabicDate(rawDate);
 
-    // تجهيز قيم المتغيرات المتواكبة مع القوالب
+    // كائن البيانات الشامل للمتغيرات داخل ملفات الـ Word
     const payload = {
       companyName: companyName,
       gDate: formattedDate,
       yearEnd: yearEnd,
       entityThe: forms.entityThe,
-      entityFor: forms.entityFor
+      entityFor: forms.entityFor,
+      partners: partners // متوفر الآن للاستخدام داخل القوالب بنفس الاسم {partners}
     };
 
     const tasks = [];
