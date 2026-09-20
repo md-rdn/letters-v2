@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام توليد الخطابات المحاسبية</title>
   
-  <!-- روابط مكتبات مستقرة ومضمونة -->
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip-utils.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
@@ -47,7 +46,7 @@
       margin-bottom: 6px;
       color: #333;
     }
-    input[type="text"], input[type="date"], select, textarea {
+    input[type="text"], input[type="date"], select {
       width: 100%;
       padding: 10px;
       border: 1px solid var(--border-color);
@@ -55,6 +54,29 @@
       box-sizing: border-box;
       font-size: 15px;
       font-family: inherit;
+    }
+    .partner-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btn-add {
+      background-color: #198754;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    .btn-remove {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
     }
     .checkbox-group {
       border: 1px solid var(--border-color);
@@ -68,15 +90,12 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .checkbox-item:last-child {
-      margin-bottom: 0;
-    }
     .checkbox-item input {
       margin-left: 10px;
       width: 18px;
       height: 18px;
     }
-    button {
+    .btn-submit {
       width: 100%;
       background-color: var(--primary-color);
       color: white;
@@ -86,11 +105,8 @@
       font-weight: bold;
       border-radius: 6px;
       cursor: pointer;
-      transition: background 0.2s;
     }
-    button:hover {
-      background-color: #0b5ed7;
-    }
+    .btn-submit:hover { background-color: #0b5ed7; }
     .status-msg {
       margin-top: 15px;
       padding: 10px;
@@ -109,22 +125,24 @@
   <h2>نظام توليد الخطابات المحاسبية</h2>
 
   <form id="docForm">
-    <!-- قائمة الشركات مع خيار كتابة اسم شركة جديد -->
+    <!-- اسم المنشأة / الشركة -->
     <div class="form-group">
       <label for="companyName">اسم المنشأة / الشركة:</label>
-      <input type="text" id="companyName" list="companyList" required placeholder="اختر من القائمة أو اكتب اسماً جديداً...">
+      <input type="text" id="companyName" list="companyList" required placeholder="اختر أو اكتب اسم المنشأة...">
       <datalist id="companyList">
-        <option value="شركة الوادي الاخضر">
-        <option value="شركة الوفاق">
-        <option value="مؤسسة النماء">
+        <option value="السعادة">
+        <option value="الوادي الأخضر">
+        <option value="الوفاق">
       </datalist>
     </div>
 
+    <!-- رقم السجل التجاري -->
     <div class="form-group">
       <label for="crNumber">رقم السجل التجاري:</label>
-      <input type="text" id="crNumber" placeholder="أدخل رقم السجل التجاري (إن وجد)">
+      <input type="text" id="crNumber" placeholder="أدخل رقم السجل التجاري">
     </div>
 
+    <!-- الكيان القانوني -->
     <div class="form-group">
       <label for="entityType">نوع الكيان القانوني:</label>
       <select id="entityType">
@@ -133,10 +151,21 @@
       </select>
     </div>
 
-    <!-- حقل أسماء الشركاء موجود بشكل دائم ومتاح دائماً -->
-    <div class="form-group" id="partnersGroup">
-      <label for="partners">أسماء الشركاء / الشريك:</label>
-      <textarea id="partners" rows="2" placeholder="أدخل أسماء الشركاء (مثال: محمد أحمد)"></textarea>
+    <!-- الشخص المفوض بالتوقيع -->
+    <div class="form-group">
+      <label for="authorizedPerson">اسم الشخص المفوض بالتوقيع:</label>
+      <input type="text" id="authorizedPerson" placeholder="أدخل اسم الشخص المفوض">
+    </div>
+
+    <!-- إضافة الشركاء ديناميكياً -->
+    <div class="form-group">
+      <label>أسماء الشركاء:</label>
+      <div id="partnersContainer">
+        <div class="partner-row">
+          <input type="text" class="partner-input" placeholder="اسم الشريك 1">
+        </div>
+      </div>
+      <button type="button" class="btn-add" onclick="addPartnerField()">+ إضافة شريك آخر</button>
     </div>
 
     <!-- تقويم تاريخ الخطاب -->
@@ -151,6 +180,7 @@
       <input type="date" id="yearEnd" required>
     </div>
 
+    <!-- تحديد الخطابات -->
     <div class="form-group">
       <label>حدد الخطابات المطلوب توليدها:</label>
       <div class="checkbox-group">
@@ -165,29 +195,45 @@
       </div>
     </div>
 
-    <button type="button" onclick="runMainController()">توليد وتنزيل المستندات</button>
+    <button type="button" class="btn-submit" onclick="runMainController()">توليد وتنزيل المستندات</button>
   </form>
 
   <div id="status" class="status-msg"></div>
 </div>
 
 <script>
-  // تعيين التواريخ افتراضياً
+  // ضبط التواريخ الإفتراضية
   const today = new Date();
-  document.getElementById('gDate').valueAsDate = today;
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
   
-  const currentYear = today.getFullYear();
-  document.getElementById('yearEnd').value = `${currentYear}-12-31`;
+  document.getElementById('gDate').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('yearEnd').value = `${yyyy}-12-31`;
 
-  // استخراج اسم اليوم باللغة العربية
+  // إضافة خانة شريك جديد
+  function addPartnerField() {
+    const container = document.getElementById("partnersContainer");
+    const count = container.getElementsByClassName("partner-row").length + 1;
+    const div = document.createElement("div");
+    div.className = "partner-row";
+    div.innerHTML = `
+      <input type="text" class="partner-input" placeholder="اسم الشريك ${count}">
+      <button type="button" class="btn-remove" onclick="this.parentElement.remove()">حذف</button>
+    `;
+    container.appendChild(div);
+  }
+
+  // حساب اسم اليوم بالعربي بدون الاعتماد على المتصفح
   function getArabicDayName(dateStr) {
     if (!dateStr) return "";
-    const dateObj = new Date(dateStr);
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
     return days[dateObj.getDay()] || "";
   }
 
-  // تحويل التاريخ ليكون شاملاً رقم اليوم والشهر والسنة
+  // تحويل التاريخ لنص عربي شامل الدقة (يوم شهر سنة)
   function formatArabicDate(dateStr) {
     if (!dateStr) return "";
     const parts = dateStr.split('-');
@@ -202,8 +248,7 @@
       "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
     ];
 
-    if (monthIndex < 0 || monthIndex > 11) return dateStr;
-    return `${day} ${months[monthIndex]} ${year}`;
+    return `${day} ${months[monthIndex]} ${year}م`;
   }
 
   function getEntityFormatures(type) {
@@ -223,15 +268,11 @@
     const arrayBuffer = await blob.arrayBuffer();
 
     const PizZipLib = window.PizZip || PizZip;
-    if (typeof PizZipLib === 'undefined') {
-      throw new Error("لم يتم تحميل مكتبة PizZip، يرجى تحديث الصفحة.");
-    }
-
     const zip = new PizZipLib(arrayBuffer);
     const doc = new window.docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
-      nullGetter: function() { return ""; } // الاستعاضة عن undefined بنص فارغ
+      nullGetter: function() { return ""; }
     });
 
     doc.render(payload);
@@ -253,7 +294,18 @@
     const rawGDate = document.getElementById("gDate").value;
     const rawYearEnd = document.getElementById("yearEnd").value;
     const entityType = document.getElementById("entityType").value;
-    const partners = document.getElementById("partners").value.trim();
+    const authorizedPerson = document.getElementById("authorizedPerson").value.trim();
+
+    // تجميع الشركاء من الخانات المتعددة
+    const partnerInputs = document.querySelectorAll(".partner-input");
+    const partnerList = [];
+    partnerInputs.forEach(input => {
+      if (input.value.trim() !== "") {
+        partnerList.push(input.value.trim());
+      }
+    });
+
+    const partnersText = partnerList.join(" و ");
 
     if (!companyName || !rawGDate || !rawYearEnd) {
       alert("يرجى تعبئة كافة الحقول المطلوبة واختيار التواريخ.");
@@ -265,7 +317,7 @@
     const formattedYearEnd = formatArabicDate(rawYearEnd);
     const dayName = getArabicDayName(rawGDate);
 
-    // تجهيز القيم الشاملة لمنع ظهور undefined في أي قالب
+    // تجهيز البيانات لكافة وسوم القوالب
     const payload = {
       companyName: companyName,
       crNumber: crNumber,
@@ -274,9 +326,10 @@
       dayName: dayName,
       entityThe: forms.entityThe,
       entityFor: forms.entityFor,
-      partners: partners,
-      partnerName: partners,
-      managerName: partners
+      authorizedPerson: authorizedPerson,
+      partners: partnersText,
+      partnerName: partnersText,
+      partnersList: partnerList.map(name => ({ name: name }))
     };
 
     const tasks = [];
