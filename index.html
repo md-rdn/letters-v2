@@ -3,15 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نظام أتمتة الخطابات والتقارير - الإصدار الثاني</title>
+  <title>نظام توليد الخطابات المحاسبية</title>
+  
+  <!-- مكتبات docxtemplater و PizZip و FileSaver -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pizzip/3.1.4/pizzip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
   <style>
     :root {
       --primary-color: #0d6efd;
-      --success-color: #198754;
       --bg-color: #f8f9fa;
+      --card-bg: #ffffff;
+      --border-color: #dee2e6;
     }
     body {
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: var(--bg-color);
       margin: 0;
       padding: 20px;
@@ -20,327 +27,243 @@
     .container {
       max-width: 800px;
       margin: 0 auto;
-      background: white;
+      background: var(--card-bg);
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     }
     h2 {
-      color: #212529;
-      border-bottom: 2px solid #e9ecef;
-      padding-bottom: 10px;
-      margin-top: 0;
-    }
-    .section-title {
-      font-size: 1.1rem;
-      font-weight: bold;
-      margin-top: 20px;
-      margin-bottom: 10px;
-      color: #495057;
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 25px;
     }
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 18px;
     }
     label {
       display: block;
+      font-weight: bold;
       margin-bottom: 6px;
-      font-weight: 600;
       color: #333;
     }
     input[type="text"], input[type="date"], select {
       width: 100%;
       padding: 10px;
-      border: 1px solid #ced4da;
+      border: 1px solid var(--border-color);
       border-radius: 6px;
       box-sizing: border-box;
-      font-size: 14px;
+      font-size: 15px;
     }
-    input:focus, select:focus {
-      outline: none;
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(13,110,253,0.15);
+    .checkbox-group {
+      border: 1px solid var(--border-color);
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #fdfdfd;
+      margin-bottom: 20px;
     }
-    .partner-row {
+    .checkbox-item {
       display: flex;
-      gap: 10px;
-      margin-bottom: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .checkbox-item:last-child {
+      margin-bottom: 0;
+    }
+    .checkbox-item input {
+      margin-left: 10px;
+      width: 18px;
+      height: 18px;
     }
     button {
-      padding: 12px 20px;
-      font-size: 15px;
-      font-weight: 600;
+      width: 100%;
+      background-color: var(--primary-color);
+      color: white;
       border: none;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: bold;
       border-radius: 6px;
       cursor: pointer;
       transition: background 0.2s;
     }
-    .btn-main {
-      background-color: var(--primary-color);
-      color: white;
-      width: 100%;
+    button:hover {
+      background-color: #0b5ed7;
+    }
+    .status-msg {
       margin-top: 15px;
-    }
-    .btn-main:hover { background-color: #0b5ed7; }
-    .btn-add {
-      background-color: var(--success-color);
-      color: white;
-      padding: 8px 12px;
-      font-size: 13px;
-    }
-    .btn-add:hover { background-color: #157347; }
-    .checkbox-card {
-      background: #f1f3f5;
-      padding: 15px;
+      padding: 10px;
       border-radius: 6px;
-      margin-top: 15px;
-    }
-    .checkbox-card label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      margin-bottom: 8px;
-    }
-    .checkbox-card label:last-child { margin-bottom: 0; }
-    .status-box {
-      margin-top: 20px;
-      padding: 12px;
-      border-radius: 6px;
-      font-weight: 600;
-      white-space: pre-wrap;
       display: none;
+      text-align: center;
+      font-weight: bold;
     }
-    .status-info { background: #cff4fc; color: #055160; display: block; }
-    .status-success { background: #d1e7dd; color: #0f5132; display: block; }
-    .status-error { background: #f8d7da; color: #842029; display: block; }
+    .status-success { background-color: #d1e7dd; color: #0f5132; }
+    .status-error { background-color: #f8d7da; color: #842029; }
   </style>
-
-  <!-- تحميل المكتبات المباشر -->
-  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.4/dist/pizzip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.37.11/build/docxtemplater.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 </head>
 <body>
 
 <div class="container">
-  <h2>أتمتة إنشاء الخطابات والتقارير (v2)</h2>
+  <h2>مولد الخطابات والقرارات المحاسبية</h2>
 
-  <div class="section-title">بيانات المنشأة الأساسية</div>
-  
-  <div class="form-group">
-    <label>نوع المنشأة:</label>
-    <select id="entityType">
-      <option value="company">شركة</option>
-      <option value="establishment">مؤسسة</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label>اسم المنشأة:</label>
-    <input type="text" id="companyName" placeholder="أدخل اسم المنشأة الكامل">
-  </div>
-
-  <div class="form-group">
-    <label>رقم السجل التجاري:</label>
-    <input type="text" id="crNumber" placeholder="مثال: 1010XXXXXX">
-  </div>
-
-  <div class="form-group">
-    <label>المدينة / المقر:</label>
-    <input type="text" id="location" value="الرياض">
-  </div>
-
-  <div class="section-title">التواريخ والمسؤولين</div>
-
-  <div class="form-group">
-    <label>اليوم:</label>
-    <input type="text" id="day" placeholder="مثال: الخميس">
-  </div>
-
-  <div class="form-group">
-    <label>التاريخ الميلادي للخطاب:</label>
-    <input type="date" id="gDate">
-  </div>
-
-  <div class="form-group">
-    <label>تاريخ نهاية السنة المالية:</label>
-    <input type="date" id="yearEnd">
-  </div>
-
-  <div class="form-group">
-    <label>السنة المالية (مختصر):</label>
-    <input type="text" id="yearEndShort" placeholder="مثال: 2025">
-  </div>
-
-  <div class="form-group">
-    <label>اسم الشخص المخول / المدير:</label>
-    <input type="text" id="authorizedPerson" placeholder="الاسم الثلاثي">
-  </div>
-
-  <div class="form-group">
-    <label>تاريخ خطبة التعيين / المراجعة:</label>
-    <input type="date" id="engagementDate">
-  </div>
-
-  <div class="section-title">الشركاء / أعضاء مجلس الإدارة</div>
-  <div id="partnersContainer">
-    <div class="partner-row">
-      <input type="text" class="partner-name" placeholder="اسم الشريك">
-      <input type="text" class="partner-title" placeholder="الصفة (شريك / رئيس مجلس الإدارة)">
+  <form id="docForm">
+    <div class="form-group">
+      <label for="companyName">اسم المنشأة/الشركة:</label>
+      <input type="text" id="companyName" required placeholder="مثال: الوفاق">
     </div>
-  </div>
-  <button type="button" class="btn-add" onclick="addPartnerRow()">+ إضافة شريك آخر</button>
 
-  <div class="checkbox-card">
-    <div class="section-title" style="margin-top:0;">اختر الخطابات المطلوب إنشاؤها:</div>
-    <label>
-      <input type="checkbox" id="chk_appointment" checked>
-      <b>قرار التعيين</b> (template1.docx)
-    </label>
-    <label>
-      <input type="checkbox" id="chk_representation" checked>
-      <b>خطاب التمثيل</b> (representation_letter.docx)
-    </label>
-  </div>
+    <div class="form-group">
+      <label for="entityType">نوع الكيان القانوني:</label>
+      <select id="entityType" onchange="updateEntityFields()">
+        <option value="مؤسسة">مؤسسة</option>
+        <option value="شركة">شركة</option>
+      </select>
+    </div>
 
-  <button class="btn-main" onclick="runMainController()">توليد وتنزيل الخطابات المختارة</button>
+    <div class="form-group">
+      <label for="gDate">تاريخ الخطاب:</label>
+      <input type="date" id="gDate" required>
+    </div>
 
-  <div id="statusBox" class="status-box"></div>
+    <div class="form-group">
+      <label for="yearEnd">تاريخ نهاية السنة المالية:</label>
+      <input type="text" id="yearEnd" placeholder="مثال: 31 ديسمبر 2025م">
+    </div>
+
+    <div class="form-group">
+      <label>حدد الخطابات المطلوب توليدها:</label>
+      <div class="checkbox-group">
+        <div class="checkbox-item">
+          <input type="checkbox" id="chk_rep" checked>
+          <label for="chk_rep">خطاب التمثيل (representation_letter.docx)</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="chk_app">
+          <label for="chk_app">قرار التعيين (template1.docx)</label>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" onclick="runMainController()">توليد وتنزيل المستندات</button>
+  </form>
+
+  <div id="status" class="status-msg"></div>
 </div>
 
 <script>
-  // ==========================================
-  // 1. إدارة عناصر الواجهة الديناميكية
-  // ==========================================
-  function addPartnerRow() {
-    const container = document.getElementById("partnersContainer");
-    const div = document.createElement("div");
-    div.className = "partner-row";
-    div.innerHTML = `
-      <input type="text" class="partner-name" placeholder="اسم الشريك">
-      <input type="text" class="partner-title" placeholder="الصفة">
-    `;
-    container.appendChild(div);
-  }
+  // تعيين تاريخ اليوم كقيمة افتراضية لمدخل التاريخ
+  document.getElementById('gDate').valueAsDate = new Date();
 
+  // دالة تنسيق التاريخ العربي المنقحة لضمان عدم القفز أو الانقلاب
   function formatArabicDate(dateStr) {
     if (!dateStr) return "";
-    const dateObj = new Date(dateStr);
-    if (isNaN(dateObj)) return dateStr;
-    const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-    return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}م`;
+    
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+
+    const year = parts[0];
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+
+    const months = [
+      "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+      "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+    ];
+
+    if (monthIndex < 0 || monthIndex > 11) return dateStr;
+
+    return `${day} ${months[monthIndex]} ${year}م`;
   }
 
-  // ==========================================
-  // 2. محرك معالجة الملفات المستقل (Core Engine)
-  // ==========================================
-  async function renderDocument(templateFile, outputFilename, data) {
-    try {
-      const res = await fetch(templateFile + "?t=" + Date.now());
-      if (!res.ok) throw new Error(`تعذر العثور على الملف: ${templateFile}`);
-      
-      const buffer = await res.arrayBuffer();
-      if (typeof PizZip === 'undefined' || typeof docxtemplater === 'undefined') {
-        throw new Error("مكتبة المعالجة غير محملة، قم بتحديث الصفحة.");
-      }
-
-      const zip = new PizZip(buffer);
-      const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-
-      doc.render(data);
-
-      const blob = doc.getZip().generate({ type: "blob" });
-      saveAs(blob, outputFilename);
-      return { success: true, fileName: outputFilename };
-    } catch (err) {
-      let message = err.message;
-      if (err.properties && err.properties.errors) {
-        message = err.properties.errors.map(e => e.message || e.explanation).join(" | ");
-      }
-      return { success: false, fileName: outputFilename, error: message };
+  // تحضير وصياغة المتغيرات اللغوية بحسب نوع الكيان
+  function getEntityFormatures(type) {
+    if (type === "شركة") {
+      return {
+        entityThe: "الشركة",
+        entityFor: "للشركة"
+      };
+    } else {
+      return {
+        entityThe: "المؤسسة",
+        entityFor: "لمؤسسة"
+      };
     }
   }
 
-  // ==========================================
-  // 3. المتحكم الرئيسي في التنفيذ (Controller)
-  // ==========================================
-  async function runMainController() {
-    const statusBox = document.getElementById("statusBox");
-    const companyName = document.getElementById("companyName").value.trim();
+  async function renderDocument(templateName, outputFilename, payload) {
+    const response = await fetch(templateName);
+    if (!response.ok) {
+      throw new Error(`تعذر العثور على القالب: ${templateName}`);
+    }
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
 
-    if (!companyName) {
-      alert("يرجى إدخال اسم المنشأة أولاً!");
+    const zip = new PizZip(arrayBuffer);
+    const doc = new window.docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true
+    });
+
+    doc.render(payload);
+
+    const out = doc.getZip().generate({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    saveAs(out, outputFilename);
+  }
+
+  async function runMainController() {
+    const statusDiv = document.getElementById("status");
+    statusDiv.style.display = "none";
+
+    const companyName = document.getElementById("companyName").value.trim();
+    const rawDate = document.getElementById("gDate").value;
+    const yearEnd = document.getElementById("yearEnd").value.trim();
+    const entityType = document.getElementById("entityType").value;
+
+    if (!companyName || !rawDate) {
+      alert("يرجى تعبئة اسم المنشأة وتاريخ الخطاب.");
       return;
     }
 
-    statusBox.className = "status-box status-info";
-    statusBox.innerText = "جاري معالجة وتوليد الملفات المطلوبة...";
+    const forms = getEntityFormatures(entityType);
+    const formattedDate = formatArabicDate(rawDate);
 
-    // تجميع الشركاء
-    const partnerRows = document.querySelectorAll(".partner-row");
-    const partnersData = [];
-    partnerRows.forEach(row => {
-      const name = row.querySelector(".partner-name").value.trim();
-      const title = row.querySelector(".partner-title").value.trim();
-      if (name) partnersData.push({ name, title });
-    });
-
-    const isProprietary = (document.getElementById("entityType").value === "establishment");
-
-    // الكائن الموحد للبيانات
+    // تجهيز قيم المتغيرات المتواكبة مع القوالب
     const payload = {
-      day: document.getElementById("day").value,
-      gDate: formatArabicDate(document.getElementById("gDate").value),
       companyName: companyName,
-      crNumber: document.getElementById("crNumber").value,
-      location: document.getElementById("location").value,
-      yearEnd: formatArabicDate(document.getElementById("yearEnd").value),
-      yearEndShort: document.getElementById("yearEndShort").value,
-      authorizedPerson: document.getElementById("authorizedPerson").value,
-      engagementDate: formatArabicDate(document.getElementById("engagementDate").value),
-      partners: partnersData,
-      isProprietary: isProprietary,
-      entityWord: isProprietary ? "مؤسسة" : "شركة",
-      entityThe: isProprietary ? "المؤسسة" : "الشركة",
-      entityFor: isProprietary ? "لمؤسسة" : "لشركة",
-      entityForThe: isProprietary ? "للمؤسسة" : "للشركة"
+      gDate: formattedDate,
+      yearEnd: yearEnd,
+      entityThe: forms.entityThe,
+      entityFor: forms.entityFor
     };
 
-    // مصفوفة المهام المستقلة
     const tasks = [];
-
-    if (document.getElementById("chk_appointment").checked) {
-      tasks.push(renderDocument("template1.docx", `قرار_تعيين_${companyName}.docx`, payload));
-    }
-
-    if (document.getElementById("chk_representation").checked) {
+    if (document.getElementById("chk_rep").checked) {
       tasks.push(renderDocument("representation_letter.docx", `خطاب_التمثيل_${companyName}.docx`, payload));
+    }
+    if (document.getElementById("chk_app").checked) {
+      tasks.push(renderDocument("template1.docx", `قرار_التعيين_${companyName}.docx`, payload));
     }
 
     if (tasks.length === 0) {
-      alert("يرجى اختيار خطاب واحد على الأقل!");
-      statusBox.style.display = "none";
+      alert("يرجى اختيار خطاب واحد على الأقل للتوليد.");
       return;
     }
 
-    // التنفيذ المستقل والتوازي
-    const results = await Promise.all(tasks);
-
-    // معالجة عرض المخرجات للمستخدم
-    let logs = [];
-    let hasError = false;
-
-    results.forEach(res => {
-      if (res.success) {
-        logs.push(`✅ تم توليد وتنزيل: ${res.fileName}`);
-      } else {
-        hasError = true;
-        logs.push(`❌ فشل في (${res.fileName}): ${res.error}`);
-      }
-    });
-
-    statusBox.className = hasError ? "status-box status-error" : "status-box status-success";
-    statusBox.innerText = logs.join("\n");
+    try {
+      await Promise.all(tasks);
+      statusDiv.className = "status-msg status-success";
+      statusDiv.innerText = "تم توليد وتنزيل المستندات بنجاح!";
+      statusDiv.style.display = "block";
+    } catch (err) {
+      console.error(err);
+      statusDiv.className = "status-msg status-error";
+      statusDiv.innerText = "حدث خطأ أثناء التوليد: " + err.message;
+      statusDiv.style.display = "block";
+    }
   }
 </script>
 
